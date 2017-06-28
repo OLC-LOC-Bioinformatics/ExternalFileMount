@@ -119,15 +119,14 @@ class MountFiles(object):
         # TODO change this back - get it to write to the logs
         # self.issue_loader.dump() -------------------------------------------------------needs setting
 
-        # Turn the description from the Redmine Request into a list of lines
         sequences_info = list()
-        input_list = issue['description'].split('\n')
+        input_list = self.parse_redmine_attached_file(issue)
 
         for input_line in input_list:
             if input_line is not '':
                 sequences_info.append(SequenceInfo(input_line))
-
         error = False
+
         try:
             inputs = get_input(self.nas_mnt, self.drive_mnt, sequences_info, issue['id'])
             response = "Retrieving %d fastqs..." % (len(inputs['fastqs']))
@@ -187,6 +186,32 @@ class MountFiles(object):
 
         # self.redmine.update_issue(redmine_id, notes + self.botmsg, status_change=4,
         #                           assign_to_id=get['issue']['author']['id'])
+
+    def parse_redmine_attached_file(self, issue):
+        # Turn the description from the Redmine Request into a list of lines
+        redmine_data = self.redmine.get_issue_data(issue['id'])
+        try:
+            attachment = redmine_data['issue']['attachments']
+
+            if len(attachment) > 0:
+                file_name = attachment[0]['filename']
+                self.timelog.time_print("Found the attachment to the Redmine Request: %s" % file_name)
+                self.timelog.time_print("Downloading file.....")
+
+                txt_file = self.redmine.download_file(attachment[0]['content_url'])
+
+                txt_lines = txt_file.split('\n')
+                txt_lines = [x.strip() for x in txt_lines]
+                return txt_lines
+
+        except KeyError:
+            response = "The file uploaded had invalid properites. Please upload a new request with another " \
+                       "file to try again."
+            self.timelog.time_print(response)
+            get = self.redmine.get_issue_data(issue['id'])
+            # self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=4,
+            #                           assign_to_id=get['issue']['author']['id'])
+
 
 if __name__ == "__main__":
     import argparse

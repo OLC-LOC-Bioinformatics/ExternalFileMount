@@ -12,6 +12,7 @@ class MassExtractor(object):
         self.missing = list()
         self.script_dir = sys.path[0]
         self.nas_mnt = nas_mnt
+        self.seqid_rows = list()
 
         # TODO fix this so it looks for seq_id of the file right away
         UtilityMethods.create_dir(self.script_dir, 'extractor_logs')
@@ -35,7 +36,7 @@ class MassExtractor(object):
 
         for sequence in sequences:
             completed_counter += 1
-            self.extractor_timelog.time_print("Currently moving %d of %d sets of files for - %d"
+            self.extractor_timelog.time_print("Currently moving %d of %d sets of files for - %s"
                                               % (completed_counter, len(sequences), sequence.seq_id))
 
             file = Sequence(sequence_info=sequence, output_folder=outfolder)
@@ -96,7 +97,9 @@ class MassExtractor(object):
                             if file.seqid_info.seq_id in row[0]:
                                 row[1] = file.seqid_info.sample_name  # Change the Sample_name in the csv to the input
                                 row[8] = file.seqid_info.project_num  # Change Sample_Project in the csv to the input
+                                row[9] = file.seqid_info.description  # Change the description in the csv to the input
                                 writer.writerow(row)
+                                # self.seqid_rows.append(row)
                         else:
                             writer.writerow(row)
             else:
@@ -106,7 +109,9 @@ class MassExtractor(object):
                         if file.seqid_info.seq_id in row[0]:
                             row[1] = file.seqid_info.sample_name  # Change the Sample_name in the csv to the input
                             row[8] = file.seqid_info.project_num  # Change Sample_Project in the csv to the input
+                            row[9] = file.seqid_info.description  # Change the description in the csv to the input
                             append.writerow(row)
+                            # self.seqid_rows.append(row)
 
     def mount_seqid_files(self, file):
         if not os.path.exists(file.seqid_mounted_folder):

@@ -62,17 +62,8 @@ class SequenceInfo(object):
         """
         :param text_line: this should have the format 'SEQ-ID   SampleName  Project#' - with /t as delimeters
         """
-
-        input_list = text_line.split(',')
-        self.seq_id = str(input_list[0])
-        self.sample_name = str(input_list[1])
+        input_list = text_line.split('\t')
+        self.seq_id = str(input_list[0]).rstrip()
+        self.sample_name = str(input_list[1]).rstrip()
         self.project_num = str(input_list[2]).rstrip()
-
-    def get_seq_id(self):
-        return self.seq_id
-
-    def get_sample_name(self):
-        return self.sample_name
-
-    def get_project_num(self):
-        return self.project_num
+        self.description = str(input_list[3]).rstrip()
