@@ -1,5 +1,6 @@
 import os
 
+
 class Sequence:
 
     csv_sheet = 'SampleSheet.csv'
@@ -17,7 +18,6 @@ class Sequence:
         self.csv_file = True
 
         # File paths for the files to be put on the drive
-        self.sample_sheet_mounted_folder = None
         self.seqid_mounted_folder = None
         self.sample_sheet_mounted_path = None
 
@@ -49,9 +49,7 @@ class Sequence:
     def add_mounted_folders_paths(self):
 
         self.seqid_mounted_folder = os.path.join(self.mounted_base_path, self.run_date, Sequence.seq_folder_structure)
-        self.sample_sheet_mounted_folder = os.path.join(self.mounted_base_path, self.run_date)
-        self.sample_sheet_mounted_path = os.path.join(self.sample_sheet_mounted_folder, Sequence.csv_sheet)
-
+        self.sample_sheet_mounted_path = os.path.join(self.mounted_base_path, Sequence.csv_sheet)
 
     def add_run_date(self, run_date):
         self.run_date = run_date

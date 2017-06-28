@@ -34,8 +34,9 @@ class FileExtension:
 
 class UtilityMethods:
     @staticmethod
-    def create_dir(basepath, path_ext):
-        if not os.path.exists(os.path.join(basepath, path_ext)):      # creates an extraction log
+    def create_dir(basepath, path_ext=""):
+        """ Creates the the output directory if it doesn't exist """
+        if not os.path.exists(os.path.join(basepath, path_ext)):
             os.makedirs(os.path.join(basepath, path_ext))
 
     @staticmethod
