@@ -41,6 +41,8 @@ class MountFiles(object):
         self.key = DefaultValues.encryption_key  # a string to decript and encrypt the json files
         self.redmine = None
         self.botmsg = '\n\n_I am a bot. This action was performed automatically._'  # sets bot message
+        self.issue_title = 'irida retrieve'
+        self.issue_status = 'New'
 
         try:
             self.set_api_key(force)
@@ -83,9 +85,14 @@ class MountFiles(object):
     def timed_retrieve(self):
         import time
         while True:
-            self.run_retrieve()
-            self.timelog.time_print("Waiting for the next check.")
-            time.sleep(self.seconds_between_redmine_checks)
+            if os.path.exists(self.drive_mnt):
+                self.run_retrieve()
+                self.timelog.time_print("Waiting for the next check.")
+                time.sleep(self.seconds_between_redmine_checks)
+            else:
+                self.timelog.time_print("Please connect the external drive. The process will not start until the drive "
+                                        "is connected. If it is connect, ensure you have entered the correct path")
+                time.sleep(self.seconds_between_redmine_checks)
 
     def run_retrieve(self):
         self.timelog.time_print("Checking for extraction requests...")
@@ -96,8 +103,8 @@ class MountFiles(object):
         # find all 'issues' on redmine, add them to data
         # Sort through all the issues with status -> 'New' and added them to found
         for issue in data['issues']:
-            if issue['id'] not in self.responded_issues and issue['status']['name'] == 'New':
-                if issue['subject'].lower().rstrip() == 'irida retrieve':
+            if issue['id'] not in self.responded_issues and issue['status']['name'] == self.issue_status:
+                if issue['subject'].lower().rstrip() == self.issue_title:
                     found.append(issue)
 
         self.timelog.time_print("Found %d new issue(s)..." % len(found))  # returns number of issues
@@ -129,7 +136,6 @@ class MountFiles(object):
 
             # Set the issue to in progress since the Extraction is running
             self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=2)
-            self.timelog.time_print('\n' + response)
             self.run_request(issue, sequences_info, output_folder)
 
         except ValueError as e:
@@ -168,7 +174,7 @@ class MountFiles(object):
 
     def completed_response(self, issue, missing):
         notes = "Completed extracting files to the drive, it is available to pickup for this support request. \n" \
-                "Results stored at %d" % issue['id']
+                "Results stored at ~/My Passport/%d" % issue['id']
         missing_files = ""
 
         if len(missing) > 0:
@@ -182,7 +188,7 @@ class MountFiles(object):
                                   assign_to_id=get['issue']['author']['id'])
 
         self.timelog.time_print("The request has been completed. " + missing_files +
-                                "The next request will be processed once available/")
+                                "The next request will be processed once available.")
 
     def parse_redmine_attached_file(self, issue):
         # Turn the description from the Redmine Request into a list of lines
@@ -206,8 +212,8 @@ class MountFiles(object):
                        "file to try again."
             self.timelog.time_print(response)
             get = self.redmine.get_issue_data(issue['id'])
-            # self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=4,
-            #                           assign_to_id=get['issue']['author']['id'])
+            self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=4,
+                                      assign_to_id=get['issue']['author']['id'])
 
     def add_validated_seqids(self, sequences_list):
 
@@ -215,10 +221,10 @@ class MountFiles(object):
         regex = r'^(2\d{3}-\w{2,10}-\d{3,4})$'
         import re
         for sequence in sequences_list:
-            if re.match(regex, sequence.seq_id):
+            if re.match(regex, sequence.sample_name):
                 validated_sequence_list.append(sequence)
             else:
-                raise ValueError("Invalid seq-id \"%s\"" % sequence.seq_id)
+                raise ValueError("Invalid seq-id \"%s\"" % sequence.sample_name)
 
         if len(validated_sequence_list) < 1:
             raise ValueError("Invalid format for redmine request. Couldn't find any fastas or fastqs to extract")

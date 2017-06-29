@@ -15,6 +15,7 @@ class MassExtractor(object):
         self.nas_mnt = nas_mnt
         self.seqid_rows = list()
         self.generic_sample_sheet_path = ""
+        self.seqid_mounted_path = ""
 
         UtilityMethods.create_dir(self.script_dir, 'extractor_logs')
         self.extractor_timelog = UtilityMethods.create_timerlog(self.script_dir, 'extractor_logs')
@@ -28,37 +29,33 @@ class MassExtractor(object):
         self.extractor_timelog.time_print("Retrieving  fastqs and other relevant files...")
         self.extractor_timelog.time_print("Found information about %d SEQID pairs to "
                                           "move to the drive..." % (len(sequences)))
+        self.seqid_mounted_path = os.path.join(outputfolder, "Data/Intensities/BaseCalls")
 
         path_to_check = ""
         completed_counter = 0
         for sequence in sequences:
             completed_counter += 1
             self.extractor_timelog.time_print("Currently moving %d of %d sets of files for - %s"
-                                              % (completed_counter, len(sequences), sequence.seq_id))
+                                              % (completed_counter, len(sequences), sequence.sample_name))
 
-            file = Sequence(sequence_info=sequence, output_folder=outputfolder)
+            file = Sequence(sequence_info=sequence)
             run_date = None
 
-            if 'SEQ' in sequence.seq_id:
+            if 'SEQ' in sequence.sample_name:
                 path_to_check = os.path.join(self.nas_mnt, 'MiSeq_Backup', '*', '*.fastq.gz')
-            elif 'OLF' in sequence.seq_id:
+            elif 'OLF' in sequence.sample_name:
                 path_to_check = os.path.join(self.nas_mnt, 'External_MiSeq_Backup', '*', '*', '*', '*.fastq.gz')
             else:
                 path_to_check = os.path.join(self.nas_mnt, 'External_MiSeq_Backup', '*', '*', '*.fastq.gz')
 
             for path in glob.iglob(path_to_check):
-                if sequence.seq_id in path:
+                if sequence.sample_name in path:
 
-                    temp = path.split(sequence.seq_id)[0]
-                    run_date = temp.split('/')[-2]
-
-                    file.add_run_date(run_date)
                     file.add_nas_seqid_path(path=path)
-                    file.add_mounted_folders_paths()
 
                     # if no samplesheet associated with the fastq pair then add one
                     if file.nas_sample_sheet_path is None:
-                        file.add_sample_sheet(path.split(sequence.seq_id)[0])
+                        file.add_sample_sheet(path.split(sequence.sample_name)[0])
 
                     if file.both_exist:
                         break
@@ -78,13 +75,23 @@ class MassExtractor(object):
         with open(nas_csv_samplesheet, 'r') as input_file:
             reader = csv.reader(input_file, delimiter=delimiter)
             for row in reader:
-                if len(row) > 8:  # incase of a non existent row
-                    if file.seqid_info.seq_id in row[0]:
-                        row[1] = file.seqid_info.sample_name  # Change the Sample_name in the csv to the input
-                        row[8] = file.seqid_info.project_num  # Change Sample_Project in the csv to the input
+                if len(row) > 8:  # incase of improper formatted row
+                    if file.seqid_info.sample_name in row[0]:
+                        row[0] = file.seqid_info.sample_id  # Change the Sample_ID in the csv to the input
+                        row[1] = file.seqid_info.sample_name   # Change the Sample_Name in the csv to the input
+                        row[8] = file.seqid_info.sample_project  # Change Sample_Project in the csv to the input
                         row[9] = file.seqid_info.description  # Change the description in the csv to the input
+
+                        # if the length of the row is longer than the template, delete the extra columes
+                        if len(row) > 10:
+                            i = 10 - len(row)
+                            del row[i:]
+
                         self.seqid_rows.append(row)
                         break
+                else:
+                    if file.seqid_info.sample_name in row[0]:
+                        self.missing.append(file.seqid_info.sample_name)
 
     def append_generic_csv(self, sample_sheet_p):
         delimiter = ','
@@ -94,16 +101,16 @@ class MassExtractor(object):
                 append.writerow(row)
 
     def mount_seqid_files(self, file):
-        UtilityMethods.create_dir(basepath=file.seqid_mounted_folder)
+        UtilityMethods.create_dir(basepath=self.seqid_mounted_path)
 
         for path in file.seqid_paths:
             try:
-                self.extractor_timelog.time_print("Copying the file %s to %s" % (path, file.seqid_mounted_folder))
-                shutil.copy(path, file.seqid_mounted_folder)
+                self.extractor_timelog.time_print("Copying the file %s to %s" % (path, self.seqid_mounted_path))
+                shutil.copy(path, self.seqid_mounted_path)
             except TypeError as e:
                 self.extractor_timelog.time_print("One of that pairs of %s, was not copied from the path %s to %s"
-                                                  % (file.seqid_info.seq_id, path, file.seqid_mounted_folder))
-                self.missing.append(file.seqid_info.seq_id)
+                                                  % (file.seqid_info.sample_name, path, self.seqid_mounted_path))
+                self.missing.append(file.seqid_info.sample_name)
 
     def mount_generic_samplesheet(self, outputfolder):
 
