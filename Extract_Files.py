@@ -80,18 +80,15 @@ class MassExtractor(object):
                         row[0] = file.seqid_info.sample_id  # Change the Sample_ID in the csv to the input
                         row[1] = file.seqid_info.sample_name   # Change the Sample_Name in the csv to the input
                         row[8] = file.seqid_info.sample_project  # Change Sample_Project in the csv to the input
-                        row[9] = file.seqid_info.description  # Change the description in the csv to the input
+                        row[9] = ""  # Change the description in the csv to nothing
 
-                        # if the length of the row is longer than the template, delete the extra columes
+                        # if the length of the row is longer than the template, delete the extra columns
                         if len(row) > 10:
                             i = 10 - len(row)
                             del row[i:]
 
                         self.seqid_rows.append(row)
                         break
-                else:
-                    if file.seqid_info.sample_name in row[0]:
-                        self.missing.append(file.seqid_info.sample_name)
 
     def append_generic_csv(self, sample_sheet_p):
         delimiter = ','

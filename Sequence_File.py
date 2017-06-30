@@ -48,11 +48,10 @@ class Sequence:
 class SequenceInfo(object):
     def __init__(self, text_line):
         """
-        :param text_line: this should have the format 'SampleName   SampleId  SampleProject Description' 
+        :param text_line: this should have the format 'SampleName   SampleId  SampleProject' 
         with /t as delimeters
         """
         input_list = text_line.split('\t')
         self.sample_name = str(input_list[0]).rstrip()
         self.sample_id = str(input_list[1]).rstrip()
         self.sample_project = str(input_list[2]).rstrip()
-        self.description = str(input_list[3]).rstrip()
