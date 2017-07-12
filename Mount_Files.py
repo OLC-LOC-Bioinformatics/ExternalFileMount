@@ -1,15 +1,15 @@
 import os
 from pyaccessories.SaveLoad import SaveLoad
 from Utilities import DefaultValues, JsonKeys, FileExtension, UtilityMethods
-from RedmineAPI.RedmineAPI import RedmineInterface
 from Encryption import Encryption
+from AccessRedmine import Redmine
 from Extract_Files import MassExtractor
 from Sequence_File import SequenceInfo
 
 
 class MountFiles(object):
 
-    def __init__(self, force):
+    def __init__(self):
 
         import sys
         script_dir = sys.path[0]  # copy current path
@@ -18,11 +18,6 @@ class MountFiles(object):
         UtilityMethods.create_dir(script_dir, FileExtension.runner_log)
         self.timelog = UtilityMethods.create_timerlog(script_dir, FileExtension.runner_log)
         self.timelog.set_colour(30)
-
-        # Load issues that the bot has already responded to
-        self.issue_loader = SaveLoad(os.path.join(script_dir, FileExtension.issues_json),
-                                     create=True)  # creates a save load object
-        self.responded_issues = set(self.issue_loader.get(DefaultValues.responded_issues, default=[], ask=False))
 
         # Load information from the config if possible
         # Otherwise they are entered by the user (with the keyboard or hitting enter for default)
@@ -38,33 +33,26 @@ class MountFiles(object):
         self.seconds_between_redmine_checks = self.loader.get(JsonKeys.secs_between_redmine_checks,
                                                               default=DefaultValues.check_time, get_type=int)
 
-        self.key = DefaultValues.encryption_key  # a string to decript and encrypt the json files
-        self.redmine = None
+        self.key = DefaultValues.encryption_key
+        self.redmine_access = None
+
         self.botmsg = '\n\n_I am a bot. This action was performed automatically._'  # sets bot message
         self.issue_title = 'irida retrieve'
-        self.issue_status = 'New'
-
-        try:
-            self.set_api_key(force)
-            self.timed_retrieve()
-
-        except Exception as e:
-            import traceback
-            self.timelog.time_print("[Error] Dumping...\n%s" % traceback.format_exc())
-            raise
+        self.issue_status = 'In Progress'
 
     def set_api_key(self, force):
-        if self.first_run == 'yes':
-            choice = 'y'
-            if force:
-                raise ValueError('Need redmine API key!')
+
+        if self.first_run == 'yes' and force:
+            raise ValueError('Need redmine API key!')
+        elif self.first_run == 'yes':
+            input_api_key = 'y'
+        elif not self.first_run == 'yes' and force:
+            input_api_key = 'n'
         else:
-            if force:
-                choice = 'n'
-            else:
-                self.timelog.time_print("Would you like to set the redmine api key? (y/n)")
-                choice = input()
-        if choice == 'y':
+            self.timelog.time_print("Would you like to set the redmine api key? (y/n)")
+            input_api_key = input()
+
+        if input_api_key == 'y':
             self.timelog.time_print("Enter your redmine api key (will be encrypted to file)")
             self.redmine_api_key = input()
             # Encode and send to json file
@@ -73,6 +61,7 @@ class MountFiles(object):
             self.loader.dump(self.config_json)
         else:
             # Import and decode from file
+            self.timelog.time_print("Used Redmine API key from the json file.")
             self.redmine_api_key = Encryption.decode(self.key, self.redmine_api_key)
 
         import re
@@ -80,7 +69,7 @@ class MountFiles(object):
             self.timelog.time_print("Invalid Redmine API key!")
             exit(1)
 
-        self.redmine = RedmineInterface('http://redmine.biodiversity.agr.gc.ca/', self.redmine_api_key)
+        self.redmine_access = Redmine(self.redmine_api_key)
 
     def timed_retrieve(self):
         import time
@@ -97,16 +86,7 @@ class MountFiles(object):
     def run_retrieve(self):
         self.timelog.time_print("Checking for extraction requests...")
 
-        data = self.redmine.get_new_issues('cfia')
-        found = []
-
-        # find all 'issues' on redmine, add them to data
-        # Sort through all the issues with status -> 'New' and added them to found
-        for issue in data['issues']:
-            if issue['id'] not in self.responded_issues and issue['status']['name'] == self.issue_status:
-                if issue['subject'].lower().rstrip() == self.issue_title:
-                    found.append(issue)
-
+        found = self.redmine_access.retrieve_issues(self.issue_status, self.issue_title)
         self.timelog.time_print("Found %d new issue(s)..." % len(found))  # returns number of issues
 
         while len(found) > 0:  # While there are still issues to respond to
@@ -114,17 +94,14 @@ class MountFiles(object):
 
     def respond_to_issue(self, issue):
 
-        self.timelog.time_print("Found a request to run. Subject: %s. ID: %s" % (issue['subject'], issue['id']))
+        self.timelog.time_print("Found a request to run. Subject: %s. ID: %s" % (issue.subject, issue.id))
         self.timelog.time_print("Adding to the list of responded to requests.")
 
-        # add files to the responded log so the action will not be performed again
-        self.responded_issues.add(issue['id'])
-        self.issue_loader.responded_issues = list(self.responded_issues)
-        self.issue_loader.dump()
+        self.redmine_access.log_new_issue(issue)
 
         sequences_info = list()
         input_list = self.parse_redmine_attached_file(issue)
-        output_folder = os.path.join(self.drive_mnt, str(issue['id']))
+        output_folder = os.path.join(self.drive_mnt, str(issue.id))
 
         for input_line in input_list:
             if input_line is not '':
@@ -135,7 +112,7 @@ class MountFiles(object):
             response = "Moving %d pairs of fastqs and the sample sheet to the drive..." % len(sequences_info)
 
             # Set the issue to in progress since the Extraction is running
-            self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=2)
+            self.redmine_access.update_status_inprogress(issue, response + self.botmsg)
             self.run_request(issue, sequences_info, output_folder)
 
         except ValueError as e:
@@ -143,9 +120,7 @@ class MountFiles(object):
                        "Please submit a new request and close this one." % e.args[0]
 
             # If something went wrong set the status to feedback and assign the author the issue
-            get = self.redmine.get_issue_data(issue['id'])
-            self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=4,
-                                      assign_to_id=get['issue']['author']['id'])
+            self.redmine_access.update_issue_to_author(issue, response + self.botmsg)
 
     def run_request(self, issue, sequences_info, output_folder):
         # Parse input
@@ -153,7 +128,6 @@ class MountFiles(object):
         try:
             # process the inputs from Redmine and move the corresponding files to the mounted drive
             missing_files = MassExtractor(nas_mnt=self.nas_mnt).move_files(sequences_info, output_folder)
-
             # Respond on redmine
             self.completed_response(issue, missing_files)
 
@@ -162,19 +136,14 @@ class MountFiles(object):
             self.timelog.time_print("[Warning] run.py had a problem, continuing redmine api anyways.")
             self.timelog.time_print("[Irata Retrieve Error Dump]\n" + traceback.format_exc())
             # Send response
-            msg = traceback.format_exc()
-
+            message = "There was a problem with your request. Please create a new issue on" \
+                      " Redmine to re-run it.\n%s" % traceback.format_exc() + self.botmsg
             # Set it to feedback and assign it back to the author
-            get = self.redmine.get_issue_data(os.path.split(output_folder)[-1])
-            self.redmine.update_issue(issue['id'],
-                                      notes="There was a problem with your request. Please create a new issue on"
-                                            " Redmine to re-run it.\n%s" % msg + self.botmsg,
-                                      status_change=4,
-                                      assign_to_id=get['issue']['author']['id'])
+            self.redmine_access.update_issue_to_author(issue, message)
 
     def completed_response(self, issue, missing):
         notes = "Completed extracting files to the drive, it is available to pickup for this support request. \n" \
-                "Results stored at ~/My Passport/%d" % issue['id']
+                "Results stored at ~/My Passport/%d" % issue.id
         missing_files = ""
 
         if len(missing) > 0:
@@ -183,25 +152,22 @@ class MountFiles(object):
                 missing_files += file + '\n'
 
         # Assign the request back to the author
-        get = self.redmine.get_issue_data(issue['id'])
-        self.redmine.update_issue(issue['id'], notes + missing_files + self.botmsg, status_change=4,
-                                  assign_to_id=get['issue']['author']['id'])
+        self.redmine_access.update_issue_to_author(issue, notes + missing_files + self.botmsg)
 
         self.timelog.time_print("The request has been completed. " + missing_files +
                                 "The next request will be processed once available.")
 
     def parse_redmine_attached_file(self, issue):
         # Turn the description from the Redmine Request into a list of lines
-        redmine_data = self.redmine.get_issue_data(issue['id'])
         try:
-            attachment = redmine_data['issue']['attachments']
+            attachment = self.redmine_access.get_attached_files(issue)
 
             if len(attachment) > 0:
                 file_name = attachment[0]['filename']
                 self.timelog.time_print("Found the attachment to the Redmine Request: %s" % file_name)
                 self.timelog.time_print("Downloading file.....")
 
-                txt_file = self.redmine.download_file(attachment[0]['content_url'])
+                txt_file = self.redmine_access.redmine_api.download_file(attachment[0]['content_url'])
 
                 txt_lines = txt_file.split('\n')
                 txt_lines = [x.strip() for x in txt_lines]
@@ -211,9 +177,7 @@ class MountFiles(object):
             response = "The file uploaded had invalid properites. Please upload a new request with another " \
                        "file to try again."
             self.timelog.time_print(response)
-            get = self.redmine.get_issue_data(issue['id'])
-            self.redmine.update_issue(issue['id'], notes=response + self.botmsg, status_change=4,
-                                      assign_to_id=get['issue']['author']['id'])
+            self.redmine_access.update_issue_to_author(issue, response + self.botmsg)
 
     def add_validated_seqids(self, sequences_list):
 
