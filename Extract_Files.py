@@ -3,6 +3,9 @@ import os
 import shutil
 import glob
 import csv
+
+from RedmineAPI.RedmineUtilities import create_timerlog
+
 from Sequence_File import Sequence
 from Utilities import UtilityMethods
 
@@ -18,7 +21,7 @@ class MassExtractor(object):
         self.seqid_mounted_path = ""
 
         UtilityMethods.create_dir(self.script_dir, 'extractor_logs')
-        self.extractor_timelog = UtilityMethods.create_timerlog(self.script_dir, 'extractor_logs')
+        self.extractor_timelog = create_timerlog(self.script_dir, 'extractor_logs')
         self.extractor_timelog.set_colour(32)
 
     def move_files(self, sequences, outputfolder):

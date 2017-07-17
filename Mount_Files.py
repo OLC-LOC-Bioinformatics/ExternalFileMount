@@ -1,8 +1,11 @@
 import os
-from pyaccessories.SaveLoad import SaveLoad
-from Utilities import DefaultValues, JsonKeys, FileExtension, UtilityMethods
-from Encryption import Encryption
-from AccessRedmine import Redmine
+
+from RedmineAPI.pyaccessories.SaveLoad import SaveLoad
+from RedmineAPI.RedmineUtilities import DefaultValues, JsonKeys, FileExtension, create_timerlog
+from RedmineAPI.Encryption import Encryption
+from RedmineAPI.AccessRedmine import Redmine
+
+from Utilities import CustomDefaultValues, CustomJsonKeys, UtilityMethods
 from Extract_Files import MassExtractor
 from Sequence_File import SequenceInfo
 
@@ -16,7 +19,7 @@ class MountFiles(object):
         self.config_json = os.path.join(script_dir, FileExtension.config_json)  # get the the json config file dir
 
         UtilityMethods.create_dir(script_dir, FileExtension.runner_log)
-        self.timelog = UtilityMethods.create_timerlog(script_dir, FileExtension.runner_log)
+        self.timelog = create_timerlog(script_dir, FileExtension.runner_log)
         self.timelog.set_colour(30)
 
         # Load information from the config if possible
@@ -28,17 +31,17 @@ class MountFiles(object):
         self.first_run = self.loader.get(JsonKeys.first_run, default=DefaultValues.first_run, ask=False)
         self.nas_mnt = os.path.normpath(self.loader.get(JsonKeys.nas_mount, default=DefaultValues.nas_mount_path,
                                                         get_type=str))
-        self.drive_mnt = os.path.normpath(self.loader.get(JsonKeys.drive_mount, default=DefaultValues.drive_mount_path,
-                                                          get_type=str))
         self.seconds_between_redmine_checks = self.loader.get(JsonKeys.secs_between_redmine_checks,
                                                               default=DefaultValues.check_time, get_type=int)
+        self.drive_mnt = os.path.normpath(self.loader.get(CustomJsonKeys.drive_mount,
+                                                          default=CustomDefaultValues.drive_mount_path, get_type=str))
 
         self.key = DefaultValues.encryption_key
         self.redmine_access = None
 
         self.botmsg = '\n\n_I am a bot. This action was performed automatically._'  # sets bot message
         self.issue_title = 'irida retrieve'
-        self.issue_status = 'In Progress'
+        self.issue_status = 'New'
 
     def set_api_key(self, force):
 
@@ -69,7 +72,7 @@ class MountFiles(object):
             self.timelog.time_print("Invalid Redmine API key!")
             exit(1)
 
-        self.redmine_access = Redmine(self.redmine_api_key)
+        self.redmine_access = Redmine(self.timelog, self.redmine_api_key)
 
     def timed_retrieve(self):
         import time
