@@ -4,7 +4,7 @@ import shutil
 import glob
 import csv
 
-from RedmineAPI.RedmineUtilities import create_timerlog
+from RedmineAPI.Utilities import create_timerlog
 
 from Sequence_File import Sequence
 from Utilities import UtilityMethods

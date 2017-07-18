@@ -1,14 +1,14 @@
 import os
 
 
-class CustomDefaultValues:
+class CustomValues:
     """
     Default values specific to the automation task
     """
     drive_mount_path = "/media/bownessn/My Passport/"
 
 
-class CustomJsonKeys:
+class CustomKeys:
     """
     Json keys to be found in the config file specific to the automation task
     """
