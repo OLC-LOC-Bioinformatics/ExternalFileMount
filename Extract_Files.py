@@ -4,7 +4,7 @@ import shutil
 import glob
 import csv
 
-from RedmineAPI.Utilities import create_timerlog
+from RedmineAPI.Utilities import create_time_log
 
 from Sequence_File import Sequence
 from Utilities import UtilityMethods
@@ -20,9 +20,7 @@ class MassExtractor(object):
         self.generic_sample_sheet_path = ""
         self.seqid_mounted_path = ""
 
-        UtilityMethods.create_dir(self.script_dir, 'extractor_logs')
-        self.extractor_timelog = create_timerlog(self.script_dir, 'extractor_logs')
-        self.extractor_timelog.set_colour(32)
+        self.extractor_timelog = create_time_log('extractor_logs')
 
     def move_files(self, sequences, outputfolder):
 

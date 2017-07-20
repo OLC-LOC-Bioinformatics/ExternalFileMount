@@ -1,10 +1,10 @@
 import os
 
-from RedmineAPI.Utilities import FileExtension, create_timerlog, get_validated_seqids
+from RedmineAPI.Utilities import FileExtension, create_time_log, get_validated_seqids
 from RedmineAPI.Access import RedmineAccess
 from RedmineAPI.Configuration import Setup
 
-from Utilities import CustomValues, CustomKeys, UtilityMethods
+from Utilities import CustomValues, CustomKeys
 from Extract_Files import MassExtractor
 from Sequence_File import SequenceInfo
 
@@ -13,17 +13,13 @@ class MountFiles(object):
 
     def __init__(self, force):
 
-        import sys
-        script_dir = sys.path[0]  # copy current path
+        self.timelog = create_time_log(FileExtension.runner_log)
 
-        UtilityMethods.create_dir(script_dir, FileExtension.runner_log)
-        self.timelog = create_timerlog(script_dir, FileExtension.runner_log)
-        self.timelog.set_colour(30)
-
+        # dictionary : with 3 value Tuple to store the custom term arguments to be stored in the config file
         custom_terms = {CustomKeys.drive_mount: (CustomValues.drive_mount_path, True, str)}
         setup = Setup(time_log=self.timelog, custom_terms=custom_terms)
         setup.set_api_key(force)
-        # return a dictionary with the value inputted by the user or loaded form the config file
+        # return a dictionary with the value inputted by the user or loaded from the config file
         self.custom_values = setup.get_custom_term_values()
 
         self.drive_mnt = self.custom_values[CustomKeys.drive_mount]
