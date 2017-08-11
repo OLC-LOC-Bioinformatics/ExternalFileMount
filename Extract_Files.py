@@ -1,26 +1,22 @@
-import sys
 import os
 import shutil
 import glob
 import csv
-
-from RedmineAPI.Utilities import create_time_log
-
 from Sequence_File import Sequence
 from Utilities import UtilityMethods
+from RedmineAPI import Utilities
 
 
 class MassExtractor(object):
 
     def __init__(self, nas_mnt):
         self.missing = list()
-        self.script_dir = sys.path[0]
         self.nas_mnt = nas_mnt
         self.seqid_rows = list()
         self.generic_sample_sheet_path = ""
         self.seqid_mounted_path = ""
 
-        self.extractor_timelog = create_time_log('extractor_logs')
+        self.extractor_timelog = Utilities.create_time_log('extractor_logs')
 
     def move_files(self, sequences, outputfolder):
 
@@ -40,12 +36,13 @@ class MassExtractor(object):
                                               % (completed_counter, len(sequences), sequence.sample_name))
 
             file = Sequence(sequence_info=sequence)
-            run_date = None
 
             if 'SEQ' in sequence.sample_name:
                 path_to_check = os.path.join(self.nas_mnt, 'MiSeq_Backup', '*', '*.fastq.gz')
             elif 'OLF' in sequence.sample_name:
                 path_to_check = os.path.join(self.nas_mnt, 'External_MiSeq_Backup', '*', '*', '*', '*.fastq.gz')
+            elif 'MER' in sequence.sample_name:
+                path_to_check = os.path.join(self.nas_mnt, 'merge_Backup', '*.fastq.gz')
             else:
                 path_to_check = os.path.join(self.nas_mnt, 'External_MiSeq_Backup', '*', '*', '*.fastq.gz')
 
@@ -71,25 +68,45 @@ class MassExtractor(object):
         return self.missing
 
     def add_seqid_csv_data(self, file):
-        nas_csv_samplesheet = file.nas_sample_sheet_path
-        delimiter = ','
-        with open(nas_csv_samplesheet, 'r') as input_file:
-            reader = csv.reader(input_file, delimiter=delimiter)
-            for row in reader:
-                if len(row) > 8:  # incase of improper formatted row
-                    if file.seqid_info.sample_name in row[0]:
-                        row[0] = file.seqid_info.sample_id  # Change the Sample_ID in the csv to the input
-                        row[1] = file.seqid_info.sample_name   # Change the Sample_Name in the csv to the input
-                        row[8] = file.seqid_info.sample_project  # Change Sample_Project in the csv to the input
-                        row[9] = ""  # Change the description in the csv to nothing
 
-                        # if the length of the row is longer than the template, delete the extra columns
-                        if len(row) > 10:
-                            i = 10 - len(row)
-                            del row[i:]
+        if "MER" in file.seqid_info.sample_name:
+            self.seqid_rows.append(self.get_default_merge_sequence_row(file))
+        else:
+            nas_csv_samplesheet = file.nas_sample_sheet_path
+            delimiter = ','
+            with open(nas_csv_samplesheet, 'r') as input_file:
+                reader = csv.reader(input_file, delimiter=delimiter)
+                for row in reader:
+                    if len(row) > 8:  # incase of improper formatted row
+                        if file.seqid_info.sample_name in row[0]:
+                            row[0] = file.seqid_info.sample_id   # Change the Sample_Name in the csv to the Sample ID
+                            row[1] = file.seqid_info.sample_id  # Change the Sample_ID in the csv to the input Sample ID
+                            row[8] = file.seqid_info.sample_project  # Change Sample_Project in the csv to the input
+                            row[9] = file.seqid_info.sample_name  # Change the description in the csv to the Sample Name
 
-                        self.seqid_rows.append(row)
-                        break
+                            # if the length of the row is longer than the template, delete the extra columns
+                            if len(row) > 10:
+                                i = 10 - len(row)
+                                del row[i:]
+
+                            self.seqid_rows.append(row)
+                            break
+
+    @ staticmethod
+    def get_default_merge_sequence_row(file):
+        """
+        Return the default row of data to be inputted into the data sheet for all merge type sequences 
+        """
+        return [file.seqid_info.sample_id,  # Sample ID
+                          file.seqid_info.sample_id,  # Sample Name
+                          "",  # Sample Plate
+                          "",  # Sample Well
+                          "na",  # I7 Index ID
+                          "na",  # index
+                          "na",  # I5 Index ID
+                          "na",  # index2
+                          file.seqid_info.sample_project,  # Sample Project
+                          file.seqid_info.sample_name]  # Description
 
     def append_generic_csv(self, sample_sheet_p):
         delimiter = ','
@@ -103,8 +120,17 @@ class MassExtractor(object):
 
         for path in file.seqid_paths:
             try:
-                self.extractor_timelog.time_print("Copying the file %s to %s" % (path, self.seqid_mounted_path))
-                shutil.copy(path, self.seqid_mounted_path)
+                # check if the file is R1 or R2
+                sample_type = "_R1"
+                if "R2" in path:
+                    sample_type = "_R2"
+
+                # path the file will be copied to on the drive
+                mounted_path = os.path.join(self.seqid_mounted_path, file.seqid_info.sample_id + sample_type
+                                            + ".fastq.gz")
+
+                self.extractor_timelog.time_print("Copying the file %s to %s" % (path, mounted_path))
+                shutil.copy(path, mounted_path)
             except TypeError as e:
                 self.extractor_timelog.time_print("One of that pairs of %s, was not copied from the path %s to %s"
                                                   % (file.seqid_info.sample_name, path, self.seqid_mounted_path))

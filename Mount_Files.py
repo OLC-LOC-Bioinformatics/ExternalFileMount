@@ -31,7 +31,7 @@ class MountFiles(object):
 
         self.botmsg = '\n\n_I am a bot. This action was performed automatically._'  # sets bot message
         self.issue_title = 'irida retrieve'
-        self.issue_status = 'Feedback'
+        self.issue_status = 'New'
 
     def timed_retrieve(self):
         import time

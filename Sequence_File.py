@@ -22,7 +22,7 @@ class Sequence:
     def add_nas_seqid_path(self, path):
 
         if len(self.seqid_paths) is 1:
-            self.both_exist = True  # both found, not need to continue searching
+            self.both_exist = True  # both found, no need to continue searching
             self.seqid_paths.append(path)
 
         elif len(self.seqid_paths) is 0:
@@ -48,7 +48,7 @@ class Sequence:
 class SequenceInfo(object):
     def __init__(self, text_line):
         """
-        :param text_line: this should have the format 'SampleName   SampleId  SampleProject' 
+        :param text_line: this should have the format 'SampleName   SampleId    SampleProject' 
         with /t as delimeters
         """
         input_list = text_line.split('\t')
