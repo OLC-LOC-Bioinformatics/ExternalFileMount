@@ -126,8 +126,9 @@ class MassExtractor(object):
                     sample_type = "_R2"
 
                 # path the file will be copied to on the drive
-                mounted_path = os.path.join(self.seqid_mounted_path, file.seqid_info.sample_id + sample_type
-                                            + ".fastq.gz")
+                # needs the extra string parameters to be recognized by the irida uploader
+                mounted_path = os.path.join(self.seqid_mounted_path, file.seqid_info.sample_id + "_S1_L001"
+                                            + sample_type + "_001" + ".fastq.gz")
 
                 self.extractor_timelog.time_print("Copying the file %s to %s" % (path, mounted_path))
                 shutil.copy(path, mounted_path)
