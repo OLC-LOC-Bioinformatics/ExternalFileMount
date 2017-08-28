@@ -1,4 +1,4 @@
-from Mount_Files import MountFiles
+import IridaRetrieve
 
 if __name__ == "__main__":
     import argparse
@@ -8,12 +8,12 @@ if __name__ == "__main__":
                         help="Don't ask to update redmine api key")
 
     args = parser.parse_args()
-    mount_files = MountFiles(args.force)
+    automator = IridaRetrieve.Automate(args.force)
 
     # try to run the program, if an error occurs print it
     try:
-        mount_files.timed_retrieve()
+        automator.timed_retrieve()
     except Exception as e:
         import traceback
-        mount_files.timelog.time_print("[Error] Dumping...\n%s" % traceback.format_exc())
+        automator.timelog.time_print("[Error] Dumping...\n%s" % traceback.format_exc())
         raise
