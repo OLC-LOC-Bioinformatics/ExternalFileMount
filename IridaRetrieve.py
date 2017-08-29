@@ -76,24 +76,33 @@ class Automate(object):
         self.access_redmine.log_new_issue(issue)
 
         try:
-
-            sequences_info = list()
+            # Parse the attached file into lines, ensuring to strip any extra characters
             input_list = self.parse_redmine_attached_file(issue)
-            output_folder = os.path.join(self.drive_mnt, str(issue.id))
+            # If there were no lines found in the file, exit the process for this issue
+            if input_list is None:
+                return
 
+            # Parse each tab delimited line creating a SequenceInfo object for each, then store them in the list
+            sequences_info = list()
             for input_line in input_list:
                 if input_line is not '':
                     sequences_info.append(SequenceInfo(input_line))
 
+            # Ensure the SEQ-IDs is validated for all entries
             sequences_info = get_validated_seqids(sequences_info)
-            response = "Moving %d pairs of fastqs and the sample sheet to the drive..." % len(sequences_info)
 
-            # Set the issue to in progress since the Extraction is running
-            self.access_redmine.update_status_inprogress(issue, response + self.botmsg)
+            # Update the issue to In Progress and give the author an update on progress
+            issue.redmine_msg = "The text file has been parsed and the SEQ-IDs have been validated. Beginning to move" \
+                                "%d pairs of fastqs and the sample sheet to the drive.." % len(sequences_info)
+            self.access_redmine.update_status_inprogress(issue, self.botmsg)
 
-            # process the inputs from Redmine and move the corresponding files to the mounted drive
+            # Create the path for the files to be moved to on the drive
+            output_folder = os.path.join(self.drive_mnt, str(issue.id))
+
+            # Process the inputs from Redmine and move the corresponding files to the mounted drive
             missing_files = MassExtractor(nas_mnt=self.nas_mnt).move_files(sequences_info, output_folder)
-            # Respond on redmine
+
+            # Set the issue back to the author and give a final response
             self.completed_response(issue, missing_files)
 
         except ValueError as e:
@@ -105,27 +114,6 @@ class Automate(object):
                                 " Redmine to re-run it.\n%s" % traceback.format_exc()
             # Set it to feedback and assign it back to the author
             self.access_redmine.update_issue_to_author(issue, self.botmsg)
-
-    def parse_redmine_attached_file(self, issue):
-        # Turn the description from the Redmine Request into a list of lines
-        try:
-            txt_file = self.access_redmine.get_attached_text_file(issue, 0)
-
-            if txt_file is not None:
-                txt_lines = txt_file.split('\n')
-                txt_lines = [x.strip() for x in txt_lines]
-                return txt_lines
-            else:
-                response = "No file with the proper format was uploaded to the request. Please attach another " \
-                           "file to try again."
-                self.timelog.time_print(response)
-                self.access_redmine.update_issue_to_author(issue, response + self.botmsg)
-
-        except KeyError:
-            response = "The file uploaded had invalid properties. Please upload a new request with another " \
-                       "file to try again."
-            self.timelog.time_print(response)
-            self.access_redmine.update_issue_to_author(issue, response + self.botmsg)
 
     def completed_response(self, issue, missing):
         """
@@ -147,3 +135,33 @@ class Automate(object):
 
         self.timelog.time_print("The request has been completed. " + missing_files +
                                 "The next request will be processed once available.")
+
+    def parse_redmine_attached_file(self, issue):
+        """
+        Read the text file that was submitted on Redmine, then split the text file into a list of separate lines. 
+        * Ensure to strip any extra characters off of the lines
+        :param issue: Specified Redmine issue of which the attached file must be processed
+        :return: A list of lines from the attached file, return None if the text file is empty or an error occurs
+        """
+        try:
+            # Get the attached text file from Redmine
+            txt_file = self.access_redmine.get_attached_text_file(issue, 0)
+
+            if txt_file is not None:
+                # Split the text file, and strip off any extra characters
+                txt_lines = txt_file.split('\n')
+                txt_lines = [x.strip() for x in txt_lines]
+                return txt_lines
+            else:
+                issue.redmine_msg = "No file with the proper format was uploaded to the request. Please attach " \
+                                    "another file to try again."
+                self.timelog.time_print(issue.redmine_msg)
+                self.access_redmine.update_issue_to_author(issue, self.botmsg)
+                return None
+
+        except KeyError:
+            issue.redmine_msg = "The file uploaded had invalid properties. Please upload a new request with another " \
+                       "file to try again."
+            self.timelog.time_print(issue.redmine_msg)
+            self.access_redmine.update_issue_to_author(issue, self.botmsg)
+            return None
