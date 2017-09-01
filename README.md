@@ -3,7 +3,7 @@ An automated process that takes in a tab delimited text file as input. It parses
 the input and moves sequences to an external drive in the proper format for the 
 Irida Uploader.
 
-####How it works? 
+#### How it works? 
 
 Create an Issue on Redmine with the Subject "Irida Retrieve". Then attach a tab 
 delimited text file with 3 columns for every sequence you would like 
