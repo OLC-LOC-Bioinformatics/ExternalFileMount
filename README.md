@@ -14,3 +14,5 @@ column the proper sequence name and the third column the sequence project.
 An example of a proper text file with 1 sequence that will be moved to the drive is shown below: 
 
 2011-SEQ-1111	Realname1	Project_name
+
+You will be notified when the process is completed and then you can pick up the external drive. 
