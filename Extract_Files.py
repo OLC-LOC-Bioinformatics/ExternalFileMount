@@ -120,15 +120,15 @@ class MassExtractor(object):
         :param sequence_pair: All information for a pair of SEQ-IDs
         """
         return [sequence_pair.seqid_info.sample_id,  # Sample ID
-                          sequence_pair.seqid_info.sample_id,  # Sample Name
-                          "",  # Sample Plate
-                          "",  # Sample Well
-                          "na",  # I7 Index ID
-                          "na",  # index
-                          "na",  # I5 Index ID
-                          "na",  # index2
-                          sequence_pair.seqid_info.sample_project,  # Sample Project
-                          sequence_pair.seqid_info.sample_name]  # Description
+                      sequence_pair.seqid_info.sample_id,  # Sample Name
+                      "",  # Sample Plate
+                      "",  # Sample Well
+                      "na",  # I7 Index ID
+                      "na",  # index
+                      "na",  # I5 Index ID
+                      "na",  # index2
+                      sequence_pair.seqid_info.sample_project,  # Sample Project
+                      sequence_pair.seqid_info.sample_name]  # Description
 
     def append_generic_csv(self, sample_sheet_path):
         """
